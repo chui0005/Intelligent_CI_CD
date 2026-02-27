@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    name: Ruff Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run ruff
+        run: ruff check .
+
+  tests:
+    name: Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        run: pytest
+
+  bandit:
+    name: Bandit Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run bandit (fail on MEDIUM+)
+        run: bandit -r app -ll -f txt
+
+  dependency-scan:
+    name: Dependency Scan (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run pip-audit
+        run: pip-audit -r requirements.txt --ignore-vuln GHSA-7f5h-v6xp-fcq8
+
+  ai-review-gate:
+    name: Codex AI Review Gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure artifact folder
+        run: mkdir -p artifacts
+
+      - name: Run Codex review
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5
+          output-file: artifacts/codex-review.md
+          prompt: |
+            You are an AppSec reviewer for this repository.
+            Read AGENTS.md and follow its review guidelines strictly.
+
+            Output format:
+            1) Markdown report with a short summary.
+            2) A JSON block enclosed in ```json ... ``` with this exact schema:
+            {
+              "findings": [
+                {
+                  "id": "string",
+                  "title": "string",
+                  "file": "string",
+                  "line_range": "string",
+                  "severity": "LOW|MEDIUM|HIGH",
+                  "category": "string",
+                  "description": "string",
+                  "suggested_fix": "string"
+                }
+              ],
+              "overall_risk_score": 0
+            }
+
+            Score from 0-10.
+            Use HIGH severity for hardcoded secrets, command injection, SQL injection, and auth bypass.
+            Be specific with exact file and line ranges.
+
+      - name: Parse JSON from Codex output
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          md_path = Path("artifacts/codex-review.md")
+          raw = md_path.read_text(encoding="utf-8")
+          match = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.S)
+          if not match:
+              raise SystemExit("No JSON block found in Codex output")
+
+          data = json.loads(match.group(1))
+          Path("artifacts/codex-review.json").write_text(
+              json.dumps(data, indent=2), encoding="utf-8"
+          )
+          print("Parsed JSON report to artifacts/codex-review.json")
+          PY
+
+      - name: Enforce AI risk gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("artifacts/codex-review.json").read_text(encoding="utf-8"))
+          score = float(data.get("overall_risk_score", 0))
+          findings = data.get("findings", [])
+          high_exists = any(str(f.get("severity", "")).upper() == "HIGH" for f in findings)
+
+          print(f"overall_risk_score={score}")
+          print(f"high_severity_findings={high_exists}")
+
+          if score >= 6 or high_exists:
+              raise SystemExit("AI review gate failed")
+          PY
+
+      - name: Upload AI review artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-ai-review
+          path: artifacts/
