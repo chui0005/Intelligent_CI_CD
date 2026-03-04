@@ -5,3 +5,5 @@ __pycache__/
 app/demo.db
 artifacts/*.md
 artifacts/*.json
+PRESENTATION_GUIDE.md
+.DS_Store
