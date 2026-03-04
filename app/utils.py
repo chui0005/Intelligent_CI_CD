@@ -19,7 +19,10 @@ def init_db() -> None:
 def search_items(query: str) -> list[dict[str, Any]]:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name FROM items WHERE name LIKE ?", (f"%{query}%",))
+    cursor.execute(
+        "SELECT id, name FROM items WHERE name LIKE ? LIMIT 50",
+        (f"%{query}%",),
+    )
     rows = cursor.fetchall()
     conn.close()
     return [{"id": row[0], "name": row[1]} for row in rows]

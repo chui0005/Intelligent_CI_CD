@@ -48,7 +48,10 @@ def init_db() -> None:
 def search_items(query: str) -> list[dict[str, Any]]:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name FROM items WHERE name LIKE ?", (f"%{query}%",))
+    cursor.execute(
+        "SELECT id, name FROM items WHERE name LIKE ? LIMIT 50",
+        (f"%{query}%",),
+    )
     rows = cursor.fetchall()
     conn.close()
     return [{"id": row[0], "name": row[1]} for row in rows]
@@ -65,7 +68,7 @@ import subprocess
 from contextlib import asynccontextmanager
 from secrets import token_urlsafe
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.security import validate_api_key
@@ -97,7 +100,9 @@ async def add_security_headers(request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Cache-Control"] = "no-store"
     if os.getenv("ENABLE_HSTS") == "1":
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains; preload"
+        )
     return response
 
 
@@ -145,19 +150,20 @@ def login(body: LoginRequest):
 
 
 @app.get("/items")
-def list_items(q: str = ""):
+def list_items(q: str = Query(default="", max_length=64)):
     return {"items": search_items(q)}
 PY
 
 cat > requirements.txt <<'REQ'
-fastapi==0.119.0
-uvicorn==0.35.0
-pytest==8.4.1
-httpx==0.28.1
-ruff==0.12.10
-bandit==1.8.6
-pip-audit==2.9.0
-jinja2==3.1.6
+fastapi>=0.120.0,<1.0.0  # Modern Python web framework used to build API endpoints
+starlette>=0.49.1,<1.0.0 # ASGI toolkit used by FastAPI; pinned above GHSA-7f5h-v6xp-fcq8 fix
+uvicorn==0.35.0       # ASGI server that runs the FastAPI application locally and in production
+pytest==8.4.1         # Testing framework used to write and execute automated unit tests
+httpx==0.28.1         # HTTP client used in tests to send requests to the FastAPI app
+ruff==0.12.10         # Fast Python linter and formatter used for code quality checks in CI
+bandit==1.8.6         # Static security analyzer that detects common Python vulnerabilities
+pip-audit==2.9.0      # Dependency vulnerability scanner that checks installed packages for known CVEs
+jinja2==3.1.6         # Templating engine (useful if rendering HTML responses or demo templates)
 REQ
 
 cat > tests/test_main.py <<'PY'

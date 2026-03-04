@@ -8,7 +8,7 @@ import subprocess
 from contextlib import asynccontextmanager
 from secrets import token_urlsafe
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.security import validate_api_key
@@ -40,7 +40,9 @@ async def add_security_headers(request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Cache-Control"] = "no-store"
     if os.getenv("ENABLE_HSTS") == "1":
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains; preload"
+        )
     return response
 
 
@@ -88,5 +90,5 @@ def login(body: LoginRequest):
 
 
 @app.get("/items")
-def list_items(q: str = ""):
+def list_items(q: str = Query(default="", max_length=64)):
     return {"items": search_items(q)}
