@@ -1,9 +1,8 @@
-fastapi>=0.120.0,<1.0.0   # Web framework for building the API endpoints
-starlette>=0.49.1,<1.0.0  # Underlying ASGI toolkit used by FastAPI (patched for GHSA-7f5h-v6xp-fcq8)
-uvicorn==0.35.0           # ASGI server used to run the FastAPI app
-pytest==8.4.1             # Test runner for unit and integration tests
-httpx==0.28.1             # HTTP client used by tests and API request flows
-ruff==0.12.10             # Linter/formatter for Python code quality checks
-bandit==1.8.6             # Static analyzer for common Python security issues
-pip-audit==2.9.0          # Dependency vulnerability scanner for known advisories
-jinja2==3.1.6             # Template engine (used if rendering HTML/templates)
+fastapi==0.116.1
+uvicorn==0.35.0
+pytest==8.4.1
+httpx==0.28.1
+ruff==0.12.10
+bandit==1.8.6
+pip-audit==2.9.0
+jinja2==2.10

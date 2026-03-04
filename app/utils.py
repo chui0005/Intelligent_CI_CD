@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import sqlite3
 from pathlib import Path
-from typing import Any
 
 DB_PATH = Path(__file__).resolve().parent / "demo.db"
 
@@ -16,13 +13,11 @@ def init_db() -> None:
     conn.close()
 
 
-def search_items(query: str) -> list[dict[str, Any]]:
+def search_items_unsafe(query: str):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, name FROM items WHERE name LIKE ? LIMIT 50",
-        (f"%{query}%",),
-    )
+    sql = f"SELECT id, name FROM items WHERE name LIKE '%{query}%'"  # injection risk
+    cursor.execute(sql)
     rows = cursor.fetchall()
     conn.close()
     return [{"id": row[0], "name": row[1]} for row in rows]
