@@ -68,7 +68,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run pip-audit
-        run: pip-audit -r requirements.txt --ignore-vuln GHSA-7f5h-v6xp-fcq8
+        run: pip-audit -r requirements.txt
 
   ai-review-gate:
     name: Codex AI Review Gate

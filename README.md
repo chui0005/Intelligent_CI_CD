@@ -44,7 +44,7 @@ uvicorn app.main:app --reload
 ruff check .
 pytest
 bandit -r app -ll -f txt
-pip-audit -r requirements.txt --ignore-vuln GHSA-7f5h-v6xp-fcq8
+pip-audit -r requirements.txt
 ```
 
 ## GitHub secret for AI gate
@@ -73,7 +73,8 @@ Optional security workflow: `.github/workflows/codeql.yml`.
 Artifact note:
 - `artifacts/` is CI-generated at runtime (`mkdir -p artifacts` in workflow) and does not need to be committed.
 - Review outputs are uploaded as a GitHub Actions artifact (`codex-ai-review`).
-- Dependency scan currently ignores `GHSA-7f5h-v6xp-fcq8` in CI because available FastAPI versions in this demo constrain Starlette to `<0.49.0`.
+- Dependency scan runs without ignored advisories in CI.
+- Requirements pin Starlette to a patched line (`>=0.49.1`) to address `GHSA-7f5h-v6xp-fcq8`.
 
 ## Branch simulation for demo
 
@@ -113,7 +114,7 @@ git push -u origin fix-from-bad
 
 - Ruff: style/quality issues in `app/main.py`.
 - Bandit: hardcoded secret, shell command execution, injection-prone patterns.
-- pip-audit: vulnerable dependency (`jinja2==2.10`), while CI ignores only `GHSA-7f5h-v6xp-fcq8`.
+- pip-audit: vulnerable dependencies will fail CI (no ignored advisories).
 - AI gate: flags high-risk findings and likely score >= 6.
 
 ## Short expected output snippets
