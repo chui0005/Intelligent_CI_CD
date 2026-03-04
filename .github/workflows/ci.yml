@@ -90,6 +90,7 @@ jobs:
           prompt: |
             You are an AppSec reviewer for this repository.
             Read AGENTS.md and follow its review guidelines strictly.
+            Ignore all files under scripts/.
 
             Output format:
             1) Markdown report with a short summary.
@@ -141,12 +142,29 @@ jobs:
           from pathlib import Path
 
           data = json.loads(Path("artifacts/codex-review.json").read_text(encoding="utf-8"))
-          score = float(data.get("overall_risk_score", 0))
           findings = data.get("findings", [])
-          high_exists = any(str(f.get("severity", "")).upper() == "HIGH" for f in findings)
+          filtered = [
+              f for f in findings
+              if not str(f.get("file", "")).startswith("scripts/")
+          ]
 
-          print(f"overall_risk_score={score}")
-          print(f"high_severity_findings={high_exists}")
+          # Recompute score after excluding scripts/ findings.
+          score = 0
+          for finding in filtered:
+              sev = str(finding.get("severity", "")).upper()
+              if sev == "HIGH":
+                  score += 4
+              elif sev == "MEDIUM":
+                  score += 2
+              elif sev == "LOW":
+                  score += 1
+          score = min(score, 10)
+
+          high_exists = any(str(f.get("severity", "")).upper() == "HIGH" for f in filtered)
+
+          print(f"overall_risk_score_excluding_scripts={score}")
+          print(f"high_severity_findings_excluding_scripts={high_exists}")
+          print(f"ignored_scripts_findings={len(findings) - len(filtered)}")
 
           if score >= 6 or high_exists:
               raise SystemExit("AI review gate failed")

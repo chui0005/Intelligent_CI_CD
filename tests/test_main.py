@@ -1,7 +1,8 @@
+import os
+
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.security import DEFAULT_DEMO_KEY
 
 client = TestClient(app)
 
@@ -13,9 +14,10 @@ def test_health() -> None:
 
 
 def test_run_rejects_disallowed_command() -> None:
+    os.environ["APP_API_KEY"] = "test-key"
     response = client.post(
         "/run",
-        headers={"X-API-Key": DEFAULT_DEMO_KEY},
+        headers={"X-API-Key": "test-key"},
         json={"cmd": "cat /etc/passwd"},
     )
     assert response.status_code == 422

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hmac
 import logging
+import os
 import shlex
 import subprocess
 from contextlib import asynccontextmanager
+from secrets import token_urlsafe
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -36,6 +39,8 @@ async def add_security_headers(request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Cache-Control"] = "no-store"
+    if os.getenv("ENABLE_HSTS") == "1":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
     return response
 
 
@@ -46,6 +51,10 @@ class RunRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     password: str = Field(min_length=8, max_length=128)
+
+
+DEMO_USER = os.getenv("DEMO_USERNAME")
+DEMO_PASS = os.getenv("DEMO_PASSWORD")
 
 
 @app.get("/health")
@@ -67,10 +76,15 @@ def run_command(body: RunRequest, x_api_key: str = Header(default="", alias="X-A
 
 @app.post("/login")
 def login(body: LoginRequest):
-    if body.username != "demo-user" or body.password != "demo-password":
+    if not (DEMO_USER and DEMO_PASS):
+        raise HTTPException(status_code=503, detail="Auth not configured")
+    if not (
+        hmac.compare_digest(body.username, DEMO_USER)
+        and hmac.compare_digest(body.password, DEMO_PASS)
+    ):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     logger.info("User login success for %s", body.username)
-    return {"token": "demo-token-not-for-production"}
+    return {"token": token_urlsafe(32)}
 
 
 @app.get("/items")
